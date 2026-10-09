@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from services.youtube import get_youtube_id
+from services.youtube import extract_video_id
 
 app = FastAPI(title='VideoMind AI')
 
@@ -16,7 +16,8 @@ async def root():
 
 @app.post("/extract-id")
 async def extract_id(req: VideoRequest):
-    video_id = get_youtube_id(req.url)
-    if not video_id:
+    try:
+        video_id = extract_video_id(req.url)
+    except InvalidYouTubeURL as e:
         raise HTTPException(status_code=400, detail="Invalid YouTube URL")
     return {"video_id": video_id}

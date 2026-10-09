@@ -1,20 +1,36 @@
 import re
 from urllib.parse import urlparse, parse_qs  # urlparse() its diveded url in different parts   and  paes_qs() its convert query parameters in dictionary
 
-ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
-HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}
+VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}
+SHORT_HOST = "youtu.be"
 
-def get_youtube_id(url: str) -> str | None:
-    parsed = urlparse(url.strip())
-    if parsed.netloc.lower() not in HOSTS:
-        return None
+class InvalidYouTubeURL(ValueError):
+    pass
+def extract_video_id(url: str) -> str:
+    url =(url or "").strip()
+    if not url:
+        raise InvalidYouTubeURL("URL is Empty")
+    if not re.match(r"https?://", url,re.IGNORECASE):
+        url = "https://" + url
 
-    if parsed.netloc.lower() == "youtu.be":
-        candidate = parsed.path.lstrip("/")
-    elif parsed.path =="/watch":
-        candidate=parse_qs(parsed.query).get('v',[""])[0]
-    else: 
-        parts = parsed.path.strip("/").split("/")
-        candidate = parts[1] if len(parts) == 2 and parts[0] in ("embed", "shorts", "live") else ""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    candidate = ""
 
-    return candidate if ID_RE.match(candidate) else None
+    if host == SHORT_HOST:
+        candidate = parsed.path.lstrip("/").split("/")[0]
+    elif host in YOUTUBE_HOSTS:
+        if parsed.path == "/watch":
+            candidate = parse_qs(parsed.query).get("v", [""])[0]
+        elif parsed.path.startswith("/shorts/"):
+            candidate = parsed.path[len("/shorts/"):].split("/")[0]
+        else:
+            raise InvalidYouTubeURL("your Youtube link formate not suported ")
+
+    else:
+        raise InvalidYouTubeURL("its not a you tube url")
+
+    if not VIDEO_ID_RE.match(candidate):
+        raise InvalidYouTubeURL("Vedio id is worng ")
+    return candidate
