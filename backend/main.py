@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from services.youtube import extract_video_id, InvalidYouTubeURL
 from services.metadata import fatch_vidio_metadata, MetadataError, VideoNotFound
+from services.transcript import fetch_transcript, TranscriptFetchError, TranscriptNotAvailable
 
 
 app = FastAPI(title='VideoMind AI')
@@ -35,3 +36,16 @@ async def video_info(req: VideoRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except MetadataError as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+@app.post("/transcript")
+async def transcript(req: VideoRequest):
+    try:
+        video_id = extract_video_id(req.url)
+        return await fetch_transcript(video_id)
+    except InvalidYouTubeURL as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except TranscriptNotAvailable as e:
+        raise HTTPException(status_code = 404, detail= str(e))
+    except TranscriptFetchError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    
