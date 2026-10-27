@@ -22,7 +22,8 @@ def parse_duration(iso: str) -> int:
     if not m:
         return 0
     d, h, mi, s = (
-        int(x) if x else 0 for x in m.groups()
+        int(x)
+        if x else 0 for x in m.groups()
     )
 
     return d * 86400 + h * 3600 + mi * 60 + s

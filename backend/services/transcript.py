@@ -10,6 +10,8 @@ from youtube_transcript_api import (
     YouTubeTranscriptApiException,
 )
 
+from services.whisper_fallback import transcribe_with_whisper, WhisperError 
+
 PREFERRED_LANGUAGES = ("en",'hi')
 
 class TranscriptNotAvailable(Exception):
@@ -49,15 +51,26 @@ def _fetch_sync(video_id: str) -> dict:
     except YouTubeTranscriptApiException as e:
         raise TranscriptFetchError(f"Transcript fetch fail hua: {type(e).__name__}")
 
-    segmets = [
-        {'start': round(s.start, 2), "durattion": round(s.duration, 2), "text": s.text} for s in fetched
+    segments = [
+        {'start': round(s.start, 2), 
+         "duration": round(s.duration, 2), 
+         "text": s.text} for s in fetched
     ]
     return {
         "video_id": video_id,
         "language": chosen.language_code,
-        "segments": segmets,
+        'is_generated': chosen.is_generated,
+        'source': 'youtube',
+        "segments": segments,
     }
 
 async def fetch_transcript(video_id: str) -> dict:
-    return await asyncio.to_thread(_fetch_sync,video_id)
+    try:
+        return await asyncio.to_thread(_fetch_sync, video_id)
+    except TranscriptNotAvailable:
+        pass
 
+    try:
+        return await transcribe_with_whisper(video_id)
+    except WhisperError as e:
+        raise TranscriptFetchError(str(e))
