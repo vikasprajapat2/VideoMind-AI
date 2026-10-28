@@ -18,6 +18,7 @@ STUTTER_WORDS = {
     "is", "in", "of", "that", "this", "but", "or", "for", "on", "at", "with", "be", "are",
 }
 
+#language detect
 def detect_language(text: str) -> str:
     letters = [c for c in text if c.isalpha()]
     if not letters:
@@ -32,4 +33,15 @@ def detect_language(text: str) -> str:
     if sum(c.isascii() for c in letters) / n > 0.8:
         return "en"
     return "unknown"
-    
+
+# each a every segment cleaning 
+def _strip_noise(text: str) -> str:
+    text = html.unescape(text)          # &amp; ko &, &quot; ko " mein convert karta hai.
+    text = re.sub(r"\[[^\]]*\]", " ", text)  # IN S [] REMOVE A TEXT 
+    text = re.sub(r"[♪♫]+", " ", text)   #music symboles remove
+    text = text.replace(">>", " ")                  # speaker change marker
+    text = re.sub(r"^\s*-\s+", "", text)     # starting lining 
+    return text
+
+def _remove_fillers(text: str) -> str:
+    text = F
