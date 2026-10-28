@@ -108,3 +108,31 @@ def _build_chunks(items: list) -> list:
             cur[2] += " " + text
     chunks.append(cur)
     return chunks
+
+def _collapse_stutters(text: str) -> str:
+    def fix(m):
+        return m.group(1) if m.group(1).lower() in STUTTER_WORDS else m.group(0)
+    return re.sub(r"\b(\w+)(?:\s+\1\b)+", fix, text, flags=re.IGNORECASE)
+
+
+def _strip_leading_markers(text: str) -> str:
+    sentences = re.split(rf"(?<=[{re.escape(SENTENCE_END)}])\s+", text)
+    cleaned = []
+    for s in sentences:
+        stripped = LEADING_MARKERS.sub("", s, count=1).strip()
+        cleaned.append(stripped or s)
+    return " ".join(cleaned)
+
+def _format_text(text: str, english: bool) -> str:
+    text = _collapse_stutters(text)
+    if english:
+        text = _strip_leading_markers(text)
+        text = re.sub(r"\bi\b(?!\.\w)", "I", text)
+    text = _normalize_ws(text)
+    text = re.sub(rf"(^|[{re.escape(SENTENCE_END)}]\s+)([a-z])",
+                  lambda m: m.group(1) + m.group(2).upper(), text)
+    text = text.rstrip(",;: ")
+    if text and not text.endswith(tuple(SENTENCE_END + "\"')")):
+        has_devanagari = any("\u0900" <= c <= "\u097f" for c in text)
+        text += "।" if has_devanagari else "."
+    return text
