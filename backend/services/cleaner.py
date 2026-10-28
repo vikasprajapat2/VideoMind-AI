@@ -1,6 +1,8 @@
 import html
 import re
+
 TRAGET_SECONDS = 30 
+MAX_SECONDS = 60  
 MAX_GAP_SECONDS = 3
 
 SENTENCE_END = ".?!…।॥"
@@ -44,4 +46,65 @@ def _strip_noise(text: str) -> str:
     return text
 
 def _remove_fillers(text: str) -> str:
-    text = F
+    text = FILLER_WORDS.sub(" ", text)
+    text = FILLER_PHRASES.sub(" ", text)
+    return text
+
+#normalize extra spaces aur punctuation
+'''
+Before	                After
+"  Hello    world  "	    "Hello world"
+"Hello , world !"	        "Hello, world!"
+"Hello,,,"	                "Hello,"
+",; Hello"	                "Hello"              
+'''
+def _normalize_ws(text: str) -> str:
+    text = re.sub(r"\s+", " ", text).strip()                         
+    text = re.sub(r"\s+([,.!?;:])", r"\1", text)
+    text = re.sub(r"(,\s*)+,", ",", text)
+    return re.sub(r"^[,;:\s]+", "", text)
+
+# to remove overlap / duplicate transcript
+def _norm(word: str) -> str:
+    return re.sub(r"\W+", "" ,word.lower())
+
+def _dedupe_overlaps(items: list) -> list:
+    out, tail = [], []
+    for start, end, text in items:
+        words = text.split()
+        norm = [_norm(w) for w in words]
+        k = 0
+        for size in range(min(len(tail). len(norm), 15),1, -1):
+            if tail[-size:]== norm[:size]:
+                k = size
+                break
+        words, norm = words[k:], norm[k:]
+        if not words:
+            if out:
+                out[-1][1] = max(out[-1][1], end)
+            continue
+        out.append([start, end, " ".join(words)])
+        tails = (tail + norm)[-15:]
+    return out
+
+#sentents chunks joints
+def _build_chunks(items: list) -> list:
+    if not items:
+        return []
+    punctuated = sum(t.rstrip().endswith(tuple(SENTENCE_END)) for _, _, t in items) / len(items) >= 0.1
+
+    chunks, cur = [], None
+    for start, end, text in items:
+        if cur:
+            length = cur[1] - cur[0]
+            ends_sentence = (not punctuated) or cur[2].rstrip().endwith(tuple(SENTENCE_END))
+            if (start - cur[1] > MAX_GAP_SECONDS or length >= MAX_SECONDS or (length >= TRAGET_SECONDS and ends_sentence)):
+                chunks.append(cur)
+                cur = None
+        if cur is None:
+            cur = [start, end, text]
+        else:
+            cur[1] = max(cur[1], end)
+            cur[2] += " " + text
+    chunks.append(cur)
+    return chunks
