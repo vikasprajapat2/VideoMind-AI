@@ -7,10 +7,22 @@ MAX_GAP_SECONDS = 3
 
 SENTENCE_END = ".?!…।॥"
 
-# ONLY FOR ENGLISH TRANSCRIPTION    
-FILLER_WORDS = re._compiler(r"\b(?:u+m+|u+h+|e+r+m*|a+h+|h+m+|m{2,})\b[,.]?", re.IGNORECASE)
-FILLER_PHRASES = re._compiler(r"\b(?:basically|you know,|i mean,)\s*", re.IGNORECASE)
-LEADING_MARKERS = re.compile(r"^(?:(?:okay|ok|alright|well)\b[,\s]*)?(?:so\b[,\s]*)?", re.IGNORECASE)
+# ONLY FOR ENGLISH TRANSCRIPTION    FILLER_WORDS = re._compiler(
+FILLER_WORDS = re.compile(
+    r"\b(?:u+m+|u+h+|e+r+m*|a+h+|h+m+|m{2,})\b[,.]?",
+    re.IGNORECASE
+)
+
+FILLER_PHRASES = re.compile(
+    r"\b(?:basically|you know,|i mean,)\s*",
+    re.IGNORECASE
+)
+
+LEADING_MARKERS = re.compile(
+    r"^(?:(?:okay|ok|alright|well)\b[,\s]*)?(?:so\b[,\s]*)?",
+    re.IGNORECASE
+)
+
 
 
 # THIS TYPE  OF  words if its repit to stutter consider one
@@ -136,3 +148,36 @@ def _format_text(text: str, english: bool) -> str:
         has_devanagari = any("\u0900" <= c <= "\u097f" for c in text)
         text += "।" if has_devanagari else "."
     return text
+
+
+#--main - 
+def clean_transcript(raw: dict) -> dict:
+    segments = raw.get("segments", [])
+    language = raw.get("language") or detect_language(" ".join(s["text"] for s in segments[:50]))
+    english = language.lower().startswith("en")
+
+    items = []
+    for s in segments:
+        text = _strip_noise(s["text"])
+        if english:
+            text = _remove_fillers(text)
+        text = _normalize_ws(text)
+        if text:
+            items.append([float(s["start"]), float(s["start"]) + float(s["duration"]), text])
+
+    out = []
+    for start, end, text in _build_chunks(_dedupe_overlaps(items)):
+        text = _format_text(text, english)
+        if text:
+            out.append({"start": round(start, 2), "end": round(end, 2), "text": text})
+
+    for cur, nxt in zip(out, out[1:]):      # chunks overlap na karein
+        if cur["end"] > nxt["start"]:
+            cur["end"] = nxt["start"]
+
+    return {
+        "video_id": raw.get("video_id"),
+        "language": language,
+        "source": raw.get("source"),
+        "segments": out,
+    }
