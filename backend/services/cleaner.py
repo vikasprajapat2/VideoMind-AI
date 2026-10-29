@@ -86,7 +86,7 @@ def _dedupe_overlaps(items: list) -> list:
         words = text.split()
         norm = [_norm(w) for w in words]
         k = 0
-        for size in range(min(len(tail). len(norm), 15),1, -1):
+        for size in range(min(len(tail), len(norm), 15),1, -1):
             if tail[-size:]== norm[:size]:
                 k = size
                 break
@@ -109,7 +109,7 @@ def _build_chunks(items: list) -> list:
     for start, end, text in items:
         if cur:
             length = cur[1] - cur[0]
-            ends_sentence = (not punctuated) or cur[2].rstrip().endwith(tuple(SENTENCE_END))
+            ends_sentence = (not punctuated) or cur[2].rstrip().endswith(tuple(SENTENCE_END))
             if (start - cur[1] > MAX_GAP_SECONDS or length >= MAX_SECONDS or (length >= TRAGET_SECONDS and ends_sentence)):
                 chunks.append(cur)
                 cur = None
